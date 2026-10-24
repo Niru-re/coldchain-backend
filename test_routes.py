@@ -2,13 +2,18 @@
 import sys
 from pathlib import Path
 
-# Add project root to path so we can import backend
-project_root = Path('C:/Users/nirma/Downloads/FTL2-main')
+# Add backend directory and parent to path
+backend_dir = Path(__file__).resolve().parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+project_root = backend_dir.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Now import from backend.submodule
-from backend.app import app
+try:
+    from app import app
+except ImportError:
+    from backend.app import app
 
 # Generate OpenAPI schema and check routes
 openapi = app.openapi()

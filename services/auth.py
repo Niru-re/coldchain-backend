@@ -1,7 +1,11 @@
-import jwt
 from datetime import datetime, timedelta, timezone
-from passlib.context import CryptContext
 from jose import JWTError, jwt as j_wt
+
+try:
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+except Exception:
+    pwd_context = None
 
 from models.User import User as UserModel
 from schemas.User import UserCreate, UserLogin, UserResponse
@@ -9,19 +13,36 @@ from db.session import get_db
 from config import settings
 
 
-# Password hashing context using passlib with bcrypt scheme
-# passlib will automatically use bcrypt if specified in schemes
-pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=settings.BCRYPT_ROUNDS)
-
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    if not plain_password or not hashed_password:
+        return False
+    if pwd_context is not None:
+        try:
+            return pwd_context.verify(plain_password, hashed_password)
+        except Exception:
+            pass
+    try:
+        import bcrypt
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8") if isinstance(hashed_password, str) else hashed_password
+        )
+    except Exception:
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Hash a password for storage."""
-    return pwd_context.hash(password)
+    if pwd_context is not None:
+        try:
+            return pwd_context.hash(password)
+        except Exception:
+            pass
+    import bcrypt
+    rounds = settings.BCRYPT_ROUNDS if hasattr(settings, "BCRYPT_ROUNDS") else 12
+    salt = bcrypt.gensalt(rounds=rounds)
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
 def authenticate_user(db, email: str, password: str):
